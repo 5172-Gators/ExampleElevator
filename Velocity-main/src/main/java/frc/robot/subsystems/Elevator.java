@@ -1,7 +1,17 @@
 package frc.robot.subsystems;
 
-import com.revrobotics.CANSparkMax;
-import com.revrobotics.CANSparkMaxLowLevel.MotorType;
+
+
+import com.ctre.phoenix.motorcontrol.ControlMode;
+import frc.robot.Constants.Position;
+import com.ctre.phoenix.motorcontrol.FeedbackDevice;
+import com.ctre.phoenix.motorcontrol.NeutralMode;
+import com.ctre.phoenix.motorcontrol.StatusFrameEnhanced;
+import com.ctre.phoenix.motorcontrol.SupplyCurrentLimitConfiguration;
+import com.ctre.phoenix.motorcontrol.TalonFXInvertType;
+import com.ctre.phoenix.motorcontrol.can.TalonFX;
+import com.ctre.phoenix.motorcontrol.can.TalonFXConfiguration;
+
 
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.controller.PIDController;
@@ -9,12 +19,18 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
-import frc.robot.Constants.Position;
+//import frc.robot.Constants.Position;
 
 public class Elevator extends SubsystemBase {
 
-    private final CANSparkMax elevatorMotorLeft; // making the left the lead motor
-    private final CANSparkMax elevatorMotorRight; // the right motor is the follower
+    private final TalonFX elevatorMotorOne;
+    private final TalonFX elevatorMotorTwo;
+    final int kUnitsPerRevolution = 2048; /* this is constant for Talon FX */
+
+    private static final double k_openLoopRampRate = 0.1;
+    private static final int k_currentLimit = Constants.Elevator.currentLimit; // Current limit for intake falcon 500
+
+
 
     private PIDController pidController;
 
@@ -28,18 +44,34 @@ public class Elevator extends SubsystemBase {
         // initialize motors
         // the right motor will spin clockwise and the left motor will go counter
         // clockwise
-        elevatorMotorLeft = new CANSparkMax(Constants.Elevator.motorLeftId, MotorType.kBrushless);
+        elevatorMotorOne = new TalonFX(Constants.Elevator.motorOneId);
+        elevatorMotorTwo = new TalonFX(Constants.Elevator.motorTwoId);
 
-        elevatorMotorRight = new CANSparkMax(Constants.Elevator.motorRightId, MotorType.kBrushless);
+        TalonFXConfiguration config = new TalonFXConfiguration();
+        config.voltageCompSaturation = 12.0;
+        config.openloopRamp = k_openLoopRampRate;
+        config.supplyCurrLimit = new SupplyCurrentLimitConfiguration(true, k_currentLimit, 0, 0);
 
-        elevatorMotorLeft.restoreFactoryDefaults();
-        elevatorMotorRight.restoreFactoryDefaults();
+        elevatorMotorOne.configAllSettings(config);
+        elevatorMotorOne.enableVoltageCompensation(true);
+        elevatorMotorOne.setNeutralMode(NeutralMode.Brake);
+        elevatorMotorOne.setInverted(TalonFXInvertType.Clockwise);
+        elevatorMotorOne.configSelectedFeedbackSensor(FeedbackDevice.IntegratedSensor);
+        elevatorMotorOne.setStatusFramePeriod(StatusFrameEnhanced.Status_2_Feedback0, 20);
+        //elevatorMotorOne.setSelectedSensorPosition(0); // zero the encoder
 
-        elevatorMotorRight.follow(elevatorMotorLeft, true);
+        elevatorMotorTwo.configAllSettings(config);
+        elevatorMotorTwo.enableVoltageCompensation(true);
+        elevatorMotorTwo.setNeutralMode(NeutralMode.Brake);
+        elevatorMotorTwo.setInverted(TalonFXInvertType.Clockwise);
+        elevatorMotorTwo.configSelectedFeedbackSensor(FeedbackDevice.IntegratedSensor);
 
-        elevatorMotorLeft.setSmartCurrentLimit(Constants.Elevator.currentLimit); 
-        elevatorMotorRight.setSmartCurrentLimit(Constants.Elevator.currentLimit); 
-        // elevatorRightController = new CANCoder(Constants.Elevator.canConderRightId);
+
+
+
+
+
+       // elevatorRightController = new CANCoder(Constants.Elevator.canConderRightId);
 
         // The motors will follow each other
         // The right motor will follow whatever the applied output on the
@@ -55,8 +87,8 @@ public class Elevator extends SubsystemBase {
     }
 
     public void resetEncoder() {
-        elevatorMotorLeft.getEncoder().setPosition(0);
-        elevatorMotorRight.getEncoder().setPosition(0);
+        elevatorMotorOne.setSelectedSensorPosition(0);// .getEncoder().setPosition(0);
+        elevatorMotorTwo.setSelectedSensorPosition(0); //getEncoder().setPosition(0);
     }
 
     public Command setPositionCMD(double position) {
@@ -78,7 +110,8 @@ public class Elevator extends SubsystemBase {
     }
 
     public void move(double voltage) {
-        elevatorMotorLeft.setVoltage(voltage);
+        elevatorMotorOne.set(ControlMode.PercentOutput, voltage/12);
+        elevatorMotorTwo.set(ControlMode.PercentOutput, voltage/12);
     }
 
     public boolean reachedSetpoint(double distance) {
@@ -86,7 +119,7 @@ public class Elevator extends SubsystemBase {
     }
 
     public double getEncoderPosition() {
-        return (elevatorMotorLeft.getEncoder().getPosition() + elevatorMotorRight.getEncoder().getPosition()) / 2;
+        return (elevatorMotorOne.getSelectedSensorPosition() + elevatorMotorTwo.getSelectedSensorPosition()) / 2;
     }
 
     public boolean atSetpoint() {

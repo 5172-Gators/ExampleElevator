@@ -152,9 +152,11 @@ public final class Constants {
         }
     }
 
+
+
     public static final class Elevator {
-        public static final int motorLeftId = 41;
-        public static final int motorRightId = 42;
+        public static final int motorOneId = 41;
+        public static final int motorTwoId = 42;
 
         public static final double elevatorKP = 1.5;
         public static final double elevatorKI = .2;
